@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Document Scanner | Computer Vision Pipeline</title>
+  <meta name="description" content="Production-grade document edge detection, homography perspective rectification, and adaptive thresholding.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/web/style.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/>
+            <rect x="7" y="7" width="10" height="10" rx="1"/>
+            <line x1="9" y1="12" x2="15" y2="12"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>Smart Document Scanner</h1>
+          <span class="badge">OpenCV &bull; FastAPI &bull; Production Grade</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <div id="statusIndicator" class="status-indicator">
+          <span class="status-dot"></span>
+          <span id="statusText">Connecting...</span>
+        </div>
+        <a href="/docs" target="_blank" class="btn btn-secondary btn-sm" id="apiDocsBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+          </svg>
+          API Docs
+        </a>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="workspace">
+      <!-- Left / Top: Upload & Editor Section -->
+      <section class="panel editor-panel">
+        <div class="panel-header">
+          <h2>1. Source Image & Corner Adjustment</h2>
+          <div class="panel-controls">
+            <button id="resetCornersBtn" class="btn btn-ghost btn-sm" title="Re-run Auto Detection" disabled>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+              </svg>
+              Auto Detect
+            </button>
+            <button id="clearBtn" class="btn btn-ghost btn-sm" title="Upload New Image" disabled>Clear</button>
+          </div>
+        </div>
+
+        <div class="panel-body">
+          <!-- Dropzone -->
+          <div id="dropzone" class="dropzone">
+            <input type="file" id="fileInput" accept="image/*" class="file-input">
+            <div class="dropzone-content">
+              <div class="upload-icon-wrapper">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                </svg>
+              </div>
+              <h3>Drag & drop document photo here</h3>
+              <p>Supports high-resolution JPEG, PNG, or mobile camera uploads</p>
+              <button type="button" class="btn btn-primary" id="browseBtn">Browse Files</button>
+            </div>
+          </div>
+
+          <!-- Interactive Canvas Stage -->
+          <div id="canvasContainer" class="canvas-container hidden">
+            <canvas id="editorCanvas"></canvas>
+            <div class="editor-hint">
+              <span>💡 <strong>Tip:</strong> Drag the glowing circular handles to manually adjust the document boundary corners.</span>
+            </div>
+            <!-- Loupe / Magnifier for precision corner alignment -->
+            <div id="magnifier" class="magnifier hidden">
+              <canvas id="magnifierCanvas" width="120" height="120"></canvas>
+              <div class="magnifier-crosshair"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pre-flight Telemetry Bar -->
+        <div id="telemetryBar" class="telemetry-bar hidden">
+          <div class="telemetry-item">
+            <span class="label">Resolution:</span>
+            <span class="value" id="telemResolution">-</span>
+          </div>
+          <div class="telemetry-item">
+            <span class="label">Detection Strategy:</span>
+            <span class="value badge-algo" id="telemAlgo">-</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Processing & Output Section -->
+      <section class="panel output-panel">
+        <div class="panel-header">
+          <h2>2. Rectification & Enhancement</h2>
+        </div>
+
+        <div class="panel-body flex-col">
+          <!-- Filter Controls -->
+          <div class="controls-card">
+            <label class="control-label">Enhancement Filter</label>
+            <div class="filter-pills" id="filterSelector">
+              <button class="pill active" data-filter="bw">
+                <span class="pill-dot bw-dot"></span>
+                Crisp B&W
+              </button>
+              <button class="pill" data-filter="color_enhanced">
+                <span class="pill-dot color-dot"></span>
+                Magic Color
+              </button>
+              <button class="pill" data-filter="grayscale">
+                <span class="pill-dot gray-dot"></span>
+                Grayscale
+              </button>
+              <button class="pill" data-filter="original">
+                <span class="pill-dot orig-dot"></span>
+                Original Color
+              </button>
+            </div>
+
+            <div class="action-row">
+              <button id="processBtn" class="btn btn-glow btn-block" disabled>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M4 7V4h3M20 7V4h-3M4 17v3h3M20 17v3h-3"/>
+                  <path d="M9 12l2 2 4-4"/>
+                </svg>
+                Rectify &amp; Scan Document
+              </button>
+            </div>
+          </div>
+
+          <!-- Output Display -->
+          <div class="output-preview-container">
+            <div id="outputPlaceholder" class="output-placeholder">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+                <polyline points="10 9 9 9 8 9"/>
+              </svg>
+              <p>Processed scan will appear here in high resolution.</p>
+            </div>
+
+            <div id="outputWrapper" class="output-wrapper hidden">
+              <img id="outputImage" alt="Scanned Document Output">
+              <div class="output-actions">
+                <a id="downloadBtn" class="btn btn-primary btn-sm" download="scanned_document.jpg">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                  </svg>
+                  Download Scan
+                </a>
+              </div>
+            </div>
+
+            <!-- Loading Spinner Overlay -->
+            <div id="spinnerOverlay" class="spinner-overlay hidden">
+              <div class="spinner"></div>
+              <p id="spinnerText">Computing Homography &amp; Filtering...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/web/app.js"></script>
+</body>
+</html>
