@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "smart-document-scanner"
 version = "0.1.0"
-description = "Production-grade document scanning engine and interactive web interface with OpenCV and FastAPI."
+description = "Production-grade document scanning engine and interactive web interface with OpenCV and FastAPI. Modernized and refactored from an earlier prototype using Generative AI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
 authors = [
-    {name = "Hamza", email = "hamza@example.com"}
+    {name = "Hamza Ogretmis", email = "hamzaogretmis@gmail.com"}
 ]
 dependencies = [
     "opencv-python-headless>=4.8.0",
